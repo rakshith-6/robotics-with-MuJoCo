@@ -1,5 +1,5 @@
 mujoco>=3.0
 numpy>=1.24
-imageio>=2.31        # writing MP4 videos
-imageio-ffmpeg>=0.4  # the actual MP4 encoder used by imageio
+imageio>=2.31        # for writing MP4 videos
+imageio-ffmpeg>=0.4  # MP4 encoder used by imageio
 matplotlib>=3.7      
