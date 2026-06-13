@@ -64,7 +64,7 @@ def load_menagerie_model(description: str, variant: str | None = None,
     d = mujoco.MjData(m)
     return m, d
 
-def load_custom_model(spec: str, variant: str | None = None, 
+def load_model(spec: str, variant: str | None = None, 
                       scene: str | None = "scene.xml"):
     if spec.startswith("menagerie:"):
         description = spec.split(":", 1)[1]
@@ -126,10 +126,9 @@ def record_video(model, data, controller, duration=5.0, fps=30,
                  reset_key=None):
     
     """
-    Run the simulation while calling controller(model, data, t) every physics
-    step, render at fps, and save an MP4 to media/<filename>
+    Runs the simulation while calling controller(model, data, t) every physics
+    step, rendering at fps, and saves MP4 and GIF to media/<filename>
     """
-
     reset_to_keyframe(model, data, reset_key) # reset_key : keyframe id to reset
     mujoco.mj_forward(model, data)
 
@@ -141,8 +140,8 @@ def record_video(model, data, controller, duration=5.0, fps=30,
     # To avoid exceeding of dimensions of MuJoCo's offscreen framebuffer
     if model.vis.global_.offwidth < width:
         model.vis.global_.offwidth = width
-    if model.vis.global_.offwidth < height:
-        model.vis.global_.offwidth = height
+    if model.vis.global_.offheight < height:
+        model.vis.global_.offheight = height
 
     renderer = mujoco.Renderer(model, height, width)
 
@@ -160,14 +159,20 @@ def record_video(model, data, controller, duration=5.0, fps=30,
 
     out = os.path.join(MEDIA_DIR, filename)
     imageio.mimwrite(out, frames, fps=fps)
+
+    gif_filename = os.path.splitext(filename)[0] + ".gif"
+    gif_out = os.path.join(MEDIA_DIR, gif_filename)
+    imageio.mimwrite(gif_out, frames, fps=fps)
+
     renderer.close()
     print(f"  saved {len(frames)} frames -> {out}")
+    print(f"  saved {len(frames)} frames -> {gif_out}")
     return out
 
 """
 A simple controller to demo joint movements of robot loaded
 """
-def generic_wave_controller(model, amplitude_frac=0.5, freq=0.5):
+def generic_wave_controller(model, amplitude_frac=0.3, freq=0.3):
     ctrlrange = model.actuator_ctrlrange.copy()
     has_range = model.actuator_ctrllimited.astype(bool)
     lo = np.where(has_range, ctrlrange[:, 0], -0.5)

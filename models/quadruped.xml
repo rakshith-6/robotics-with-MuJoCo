@@ -1,0 +1,182 @@
+<!-- ============================================================
+     QUADRUPED  -  a four-legged robot for MuJoCo
+     ============================================================
+     A torso (box) on a free joint, with four identical legs.
+     Each leg has THREE joints, so the robot has 12 actuated
+     joints in total:
+
+        hip_abduction : swings the leg sideways  (axis = body X)
+        hip_flexion   : swings the leg fwd/back   (axis = body Y)
+        knee          : bends the lower leg        (axis = body Y)
+
+     Naming: FL = front-left, FR = front-right,
+             HL = hind-left,  HR = hind-right.
+
+     Coordinate convention (body frame):
+        +X = forward,  +Y = left,  +Z = up.
+
+     A "stand" keyframe puts the robot in a stable, bent-knee
+     standing pose with all four feet on the floor.
+     ============================================================ -->
+<mujoco model="quadruped">
+
+  <!-- angles written in DEGREES (easy to read). NOTE: data.qpos is
+       always in RADIANS at runtime, including the keyframe below. -->
+  <compiler angle="degree" autolimits="true"/>
+
+  <!-- 2 ms physics step. implicitfast is stable and fast for robots. -->
+  <option timestep="0.002" integrator="implicitfast" gravity="0 0 -9.81"/>
+
+  <!-- make the offscreen render buffer big enough for MP4 recording -->
+  <visual>
+    <global offwidth="1280" offheight="960"/>
+  </visual>
+
+  <!-- ---------- shared defaults so every leg is identical ---------- -->
+  <default>
+    <default class="leg">
+      <!-- a little damping + rotor inertia keeps the legs well behaved -->
+      <joint type="hinge" damping="1.0" armature="0.01" frictionloss="0.05"/>
+      <geom  type="capsule" density="800" friction="1.0 0.05 0.001"
+             rgba="0.30 0.52 0.82 1"/>
+      <!-- position servo: ctrl = desired joint angle (radians) -->
+      <position kp="200" kv="10" forcerange="-80 80"/>
+    </default>
+  </default>
+
+  <!-- ---------------------- scene assets ---------------------- -->
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.5 0.7 0.9"
+             rgb2="0.1 0.2 0.4" width="256" height="256"/>
+    <texture name="grid" type="2d" builtin="checker"
+             rgb1="0.2 0.3 0.4" rgb2="0.1 0.15 0.2"
+             width="512" height="512" mark="cross" markrgb="0.8 0.8 0.8"/>
+    <material name="grid" texture="grid" texrepeat="6 6"
+              texuniform="true" reflectance="0.2"/>
+    <material name="torso_mat" rgba="0.85 0.55 0.20 1"/>
+    <material name="foot_mat"  rgba="0.10 0.10 0.12 1"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 3" dir="0 0 -1" diffuse="0.9 0.9 0.9"/>
+    <light pos="1 1 2" dir="-1 -1 -2" diffuse="0.4 0.4 0.4"/>
+    <geom name="floor" type="plane" size="0 0 0.05" material="grid"/>
+
+    <!-- ===================== TORSO ===================== -->
+    <!-- starts at z = 0.30; the free joint lets it move & fall freely -->
+    <body name="torso" pos="0 0 0.30">
+      <freejoint name="root"/>
+      <geom name="torso_geom" type="box" size="0.20 0.10 0.04"
+            material="torso_mat" density="900"/>
+      <!-- a small "head" so forward is obvious in the video -->
+      <geom name="head" type="sphere" pos="0.22 0 0.02" size="0.035"
+            material="torso_mat"/>
+
+      <!-- camera that rides along with the robot -->
+      <camera name="track" pos="0 -1.4 0.7" xyaxes="1 0 0 0 0.6 0.8"
+              mode="trackcom"/>
+
+      <!-- ================= FRONT-LEFT LEG ================= -->
+      <body name="FL_hip" pos="0.18 0.10 0">
+        <joint name="FL_hip_abduction" class="leg" axis="1 0 0" range="-40 40"/>
+        <geom  class="leg" fromto="0 0 0  0 0.05 0" size="0.022"/>
+        <body name="FL_thigh" pos="0 0.05 0">
+          <joint name="FL_hip_flexion" class="leg" axis="0 1 0" range="-90 90"/>
+          <geom  class="leg" fromto="0 0 0  0 0 -0.13" size="0.020"/>
+          <body name="FL_calf" pos="0 0 -0.13">
+            <joint name="FL_knee" class="leg" axis="0 1 0" range="-150 -10"/>
+            <geom  class="leg" fromto="0 0 0  0 0 -0.14" size="0.015"/>
+            <geom  name="FL_foot" type="sphere" pos="0 0 -0.14" size="0.022"
+                   material="foot_mat" friction="1.5 0.1 0.01"/>
+          </body>
+        </body>
+      </body>
+
+      <!-- ================= FRONT-RIGHT LEG ================= -->
+      <body name="FR_hip" pos="0.18 -0.10 0">
+        <joint name="FR_hip_abduction" class="leg" axis="1 0 0" range="-40 40"/>
+        <geom  class="leg" fromto="0 0 0  0 -0.05 0" size="0.022"/>
+        <body name="FR_thigh" pos="0 -0.05 0">
+          <joint name="FR_hip_flexion" class="leg" axis="0 1 0" range="-90 90"/>
+          <geom  class="leg" fromto="0 0 0  0 0 -0.13" size="0.020"/>
+          <body name="FR_calf" pos="0 0 -0.13">
+            <joint name="FR_knee" class="leg" axis="0 1 0" range="-150 -10"/>
+            <geom  class="leg" fromto="0 0 0  0 0 -0.14" size="0.015"/>
+            <geom  name="FR_foot" type="sphere" pos="0 0 -0.14" size="0.022"
+                   material="foot_mat" friction="1.5 0.1 0.01"/>
+          </body>
+        </body>
+      </body>
+
+      <!-- ================= HIND-LEFT LEG ================= -->
+      <body name="HL_hip" pos="-0.18 0.10 0">
+        <joint name="HL_hip_abduction" class="leg" axis="1 0 0" range="-40 40"/>
+        <geom  class="leg" fromto="0 0 0  0 0.05 0" size="0.022"/>
+        <body name="HL_thigh" pos="0 0.05 0">
+          <joint name="HL_hip_flexion" class="leg" axis="0 1 0" range="-90 90"/>
+          <geom  class="leg" fromto="0 0 0  0 0 -0.13" size="0.020"/>
+          <body name="HL_calf" pos="0 0 -0.13">
+            <joint name="HL_knee" class="leg" axis="0 1 0" range="-150 -10"/>
+            <geom  class="leg" fromto="0 0 0  0 0 -0.14" size="0.015"/>
+            <geom  name="HL_foot" type="sphere" pos="0 0 -0.14" size="0.022"
+                   material="foot_mat" friction="1.5 0.1 0.01"/>
+          </body>
+        </body>
+      </body>
+
+      <!-- ================= HIND-RIGHT LEG ================= -->
+      <body name="HR_hip" pos="-0.18 -0.10 0">
+        <joint name="HR_hip_abduction" class="leg" axis="1 0 0" range="-40 40"/>
+        <geom  class="leg" fromto="0 0 0  0 -0.05 0" size="0.022"/>
+        <body name="HR_thigh" pos="0 -0.05 0">
+          <joint name="HR_hip_flexion" class="leg" axis="0 1 0" range="-90 90"/>
+          <geom  class="leg" fromto="0 0 0  0 0 -0.13" size="0.020"/>
+          <body name="HR_calf" pos="0 0 -0.13">
+            <joint name="HR_knee" class="leg" axis="0 1 0" range="-150 -10"/>
+            <geom  class="leg" fromto="0 0 0  0 0 -0.14" size="0.015"/>
+            <geom  name="HR_foot" type="sphere" pos="0 0 -0.14" size="0.022"
+                   material="foot_mat" friction="1.5 0.1 0.01"/>
+          </body>
+        </body>
+      </body>
+
+    </body>
+  </worldbody>
+
+  <!-- ------------- one position actuator per joint ------------- -->
+  <actuator>
+    <position class="leg" name="FL_abd"  joint="FL_hip_abduction"/>
+    <position class="leg" name="FL_flex" joint="FL_hip_flexion"/>
+    <position class="leg" name="FL_knee" joint="FL_knee"/>
+
+    <position class="leg" name="FR_abd"  joint="FR_hip_abduction"/>
+    <position class="leg" name="FR_flex" joint="FR_hip_flexion"/>
+    <position class="leg" name="FR_knee" joint="FR_knee"/>
+
+    <position class="leg" name="HL_abd"  joint="HL_hip_abduction"/>
+    <position class="leg" name="HL_flex" joint="HL_hip_flexion"/>
+    <position class="leg" name="HL_knee" joint="HL_knee"/>
+
+    <position class="leg" name="HR_abd"  joint="HR_hip_abduction"/>
+    <position class="leg" name="HR_flex" joint="HR_hip_flexion"/>
+    <position class="leg" name="HR_knee" joint="HR_knee"/>
+  </actuator>
+
+  <!-- ----------------- standing pose keyframe -----------------
+       qpos = [ x y z  qw qx qy qz   then 12 joint angles (RADIANS) ]
+       Each leg: abduction=0, hip_flexion=+0.5 rad, knee=-1.0 rad.
+       That bent-knee pose puts each foot roughly under its hip. -->
+  <keyframe>
+    <key name="stand"
+         qpos="0 0 0.255  1 0 0 0
+               0  0.5 -1.0
+               0  0.5 -1.0
+               0  0.5 -1.0
+               0  0.5 -1.0"
+         ctrl="0  0.5 -1.0
+               0  0.5 -1.0
+               0  0.5 -1.0
+               0  0.5 -1.0"/>
+  </keyframe>
+
+</mujoco>

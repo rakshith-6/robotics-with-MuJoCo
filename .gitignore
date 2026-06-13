@@ -1,3 +1,5 @@
 mojoco_venv/
 .vscode/
 common/__pycache__/
+*.mp4 
+*.gif

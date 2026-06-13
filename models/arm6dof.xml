@@ -1,0 +1,246 @@
+<!-- ====================================================================== -->
+<!--  arm6dof.xml                                                            -->
+<!--  A 6-DOF (six degrees of freedom) robotic arm with a parallel gripper.  -->
+<!--                                                                          -->
+<!--  This file is written in MJCF, MuJoCo's XML modelling format.            -->
+<!--  Everything is heavily commented so you can learn how a robot model is   -->
+<!--  put together. Read it top-to-bottom like a tutorial.                    -->
+<!-- ====================================================================== -->
+<mujoco model="arm6dof">
+
+  <!-- ====================================================================
+       COMPILER OPTIONS
+       angle="degree"      -> joint ranges below are written in DEGREES (easy
+                              to read). NOTE: MuJoCo *internally* always uses
+                              radians, so data.qpos in Python is in radians.
+       autolimits="true"   -> a joint with a "range" is automatically limited.
+       inertiafromgeom     -> mass/inertia of each body is computed from its
+                              geom shapes + density, so we don't hand-write
+                              inertia matrices.
+       ==================================================================== -->
+  <compiler angle="degree" autolimits="true" inertiafromgeom="true"/>
+
+  <!-- ====================================================================
+       SIMULATION OPTIONS
+       timestep   -> physics integration step (2 ms => 500 Hz physics).
+       integrator -> implicitfast is stable and fast for robots.
+       gravity    -> standard Earth gravity, pointing -Z.
+       ==================================================================== -->
+  <option timestep="0.002" integrator="implicitfast" gravity="0 0 -9.81"/>
+
+  <!-- Nice default visual settings for the interactive viewer. -->
+  <visual>
+    <global offwidth="1280" offheight="720"/>
+    <quality shadowsize="4096"/>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+  </visual>
+
+  <!-- ====================================================================
+       DEFAULTS
+       "class" blocks let us avoid repeating the same attributes on every
+       geom/joint/actuator. Anything in <default class="..."> is inherited
+       by elements that say class="...".
+       ==================================================================== -->
+  <default>
+    <!-- Default look & physical feel for every link geom. -->
+    <default class="link">
+      <geom type="capsule" rgba="0.2 0.45 0.75 1" density="800"
+            friction="1 0.05 0.001" contype="0" conaffinity="0"/>
+    </default>
+
+    <!-- Every arm joint: a hinge (revolute) with a little damping so the
+         simulation is well-behaved, plus a small amount of friction. -->
+    <default class="arm_joint">
+      <joint type="hinge" damping="2" armature="0.05" frictionloss="0.2"/>
+    </default>
+
+    <!-- Position actuators for the 6 arm joints. kp is the position gain. -->
+    <default class="arm_act">
+      <position kp="500" kv="60" forcerange="-300 300"/>
+    </default>
+
+    <!-- Geoms that make up the two gripper fingers. -->
+    <default class="finger">
+      <geom type="box" rgba="0.15 0.15 0.18 1" density="500"
+            friction="2.0 0.1 0.002"/>
+    </default>
+  </default>
+
+  <!-- ====================================================================
+       ASSETS: reusable textures and materials.
+       ==================================================================== -->
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7"
+             rgb2="0 0 0" width="512" height="3072"/>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.2 0.3 0.4"
+             rgb2="0.1 0.15 0.2" width="512" height="512"/>
+    <material name="grid" texture="grid" texrepeat="6 6" reflectance="0.2"/>
+    <material name="ee_mat" rgba="0.9 0.6 0.1 1"/>
+  </asset>
+
+  <!-- ====================================================================
+       THE WORLD
+       Every physical thing lives inside <worldbody>. Bodies are nested:
+       a child body's coordinates are relative to its parent. Moving a parent
+       moves all of its children (this is what makes a kinematic chain).
+       ==================================================================== -->
+  <worldbody>
+
+    <!-- A light that follows nothing (fixed in the world). -->
+    <light name="top" pos="0 0 2.5" dir="0 0 -1" directional="true"/>
+
+    <!-- The ground plane. It is static (no joint => welded to the world). -->
+    <geom name="floor" type="plane" size="0 0 0.05" material="grid"/>
+
+    <!-- ----------------------------------------------------------------
+         LINK 0 : the fixed base. No joint => bolted to the floor.
+         ---------------------------------------------------------------- -->
+    <body name="base" pos="0 0 0">
+      <geom type="cylinder" size="0.08 0.04" rgba="0.25 0.25 0.3 1"
+            density="2000" contype="0" conaffinity="0"/>
+
+      <!-- ------------------------------------------------------------
+           LINK 1 : shoulder pan. JOINT 1 rotates the whole arm about Z.
+           ------------------------------------------------------------ -->
+      <body name="link1" gravcomp="1" pos="0 0 0.04">
+        <joint name="joint1" class="arm_joint" axis="0 0 1" range="-180 180"/>
+        <geom class="link" fromto="0 0 0  0 0 0.10" size="0.05"/>
+
+        <!-- --------------------------------------------------------
+             LINK 2 : shoulder lift. JOINT 2 tilts the upper arm.
+             -------------------------------------------------------- -->
+        <body name="link2" gravcomp="1" pos="0 0 0.10">
+          <joint name="joint2" class="arm_joint" axis="0 1 0" range="-100 100"/>
+          <geom class="link" fromto="0 0 0  0 0 0.25" size="0.045"/>
+
+          <!-- ------------------------------------------------------
+               LINK 3 : elbow. JOINT 3 bends the forearm.
+               ------------------------------------------------------ -->
+          <body name="link3" gravcomp="1" pos="0 0 0.25">
+            <joint name="joint3" class="arm_joint" axis="0 1 0" range="-160 160"/>
+            <geom class="link" fromto="0 0 0  0 0 0.22" size="0.04"/>
+
+            <!-- ----------------------------------------------------
+                 LINK 4 : wrist roll. JOINT 4 spins the forearm.
+                 ---------------------------------------------------- -->
+            <body name="link4" gravcomp="1" pos="0 0 0.22">
+              <joint name="joint4" class="arm_joint" axis="0 0 1" range="-180 180"/>
+              <geom class="link" fromto="0 0 0  0 0 0.08" size="0.035"/>
+
+              <!-- --------------------------------------------------
+                   LINK 5 : wrist pitch. JOINT 5 tilts the gripper.
+                   -------------------------------------------------- -->
+              <body name="link5" gravcomp="1" pos="0 0 0.08">
+                <joint name="joint5" class="arm_joint" axis="0 1 0" range="-120 120"/>
+                <geom class="link" fromto="0 0 0  0 0 0.06" size="0.032"/>
+
+                <!-- ------------------------------------------------
+                     LINK 6 : wrist roll (tool flange). JOINT 6.
+                     The gripper is attached here.
+                     ------------------------------------------------ -->
+                <body name="link6" gravcomp="1" pos="0 0 0.06">
+                  <joint name="joint6" class="arm_joint" axis="0 0 1" range="-180 180"/>
+                  <geom type="cylinder" size="0.03 0.02" material="ee_mat" contype="0" conaffinity="0"/>
+
+                  <!-- "site" = a massless reference frame. We use it as the
+                       end-effector point for forward/inverse kinematics. It
+                       sits between the fingertips so IK targets the grasp point. -->
+                  <site name="ee_site" pos="0 0 0.085" size="0.012"
+                        rgba="1 0 0 1"/>
+
+                  <!-- ============ PARALLEL GRIPPER ============
+                       A palm plus two sliding fingers. Each finger has a slide
+                       joint so the gripper can open and close. The fingers are
+                       spaced wide enough to clear the 5 cm cube when OPEN
+                       (joint=0) and squeeze it when commanded toward ~0.015. -->
+                  <geom type="box" size="0.075 0.02 0.015" pos="0 0 0.03" contype="0" conaffinity="0"
+                        rgba="0.3 0.3 0.35 1" density="600"/>
+
+                  <body name="left_finger" pos="0.06 0 0.07">
+                    <joint name="left_finger_joint" type="slide" axis="-1 0 0"
+                           range="0 0.05" damping="5"/>
+                    <geom class="finger" size="0.008 0.018 0.03"/>
+                  </body>
+
+                  <body name="right_finger" pos="-0.06 0 0.07">
+                    <joint name="right_finger_joint" type="slide" axis="1 0 0"
+                           range="0 0.05" damping="5"/>
+                    <geom class="finger" size="0.008 0.018 0.03"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+
+    <!-- ----------------------------------------------------------------
+         A red TARGET marker in space. The inverse-kinematics demo drives
+         the end-effector to this point. mocap="true" lets us move it from
+         Python without it being affected by physics.
+         ---------------------------------------------------------------- -->
+    <body name="target" pos="0.35 0.0 0.4" mocap="true">
+      <site name="target_site" type="sphere" size="0.02" rgba="0 1 0 0.5"/>
+    </body>
+
+    <!-- ----------------------------------------------------------------
+         A free-floating CUBE for the pick-and-place demo. The "free" joint
+         gives it 6 DOF so it can be picked up and carried.
+         ---------------------------------------------------------------- -->
+    <body name="cube" pos="0.35 0.0 0.025">
+      <freejoint name="cube_free"/>
+      <geom name="cube_geom" type="box" size="0.025 0.025 0.025"
+            rgba="0.85 0.2 0.2 1" density="300" friction="2 0.1 0.002"/>
+    </body>
+
+    <!-- A green pad showing where the cube should be placed. -->
+    <geom name="goal_pad" type="cylinder" pos="0.0 0.35 0.001" size="0.05 0.001"
+          rgba="0.2 0.8 0.2 0.5" contype="0" conaffinity="0"/>
+
+  </worldbody>
+
+  <!-- ====================================================================
+       ACTUATORS
+       One position actuator per joint. In Python you set data.ctrl[i] to the
+       DESIRED joint angle (radians) and the actuator drives the joint there.
+       The two finger actuators share a tendon-free design: each is commanded
+       independently but we drive them together in code.
+       ==================================================================== -->
+  <actuator>
+    <position name="act1" class="arm_act" joint="joint1" ctrlrange="-3.14 3.14"/>
+    <position name="act2" class="arm_act" joint="joint2" ctrlrange="-1.74 1.74"/>
+    <position name="act3" class="arm_act" joint="joint3" ctrlrange="-2.79 2.79"/>
+    <position name="act4" class="arm_act" joint="joint4" ctrlrange="-3.14 3.14"/>
+    <position name="act5" class="arm_act" joint="joint5" ctrlrange="-2.09 2.09"/>
+    <position name="act6" class="arm_act" joint="joint6" ctrlrange="-3.14 3.14"/>
+
+    <!-- Gripper: position actuators, 0 = open, 0.035 = fully closed. -->
+    <position name="left_grip"  joint="left_finger_joint"  kp="200"
+              ctrlrange="0 0.05" forcerange="-50 50"/>
+    <position name="right_grip" joint="right_finger_joint" kp="200"
+              ctrlrange="0 0.05" forcerange="-50 50"/>
+  </actuator>
+
+  <!-- ====================================================================
+       SENSORS (optional but handy). These expose data you can read from
+       Python via data.sensordata, instead of digging through the state.
+       ==================================================================== -->
+  <sensor>
+    <framepos    name="ee_pos"   objtype="site" objname="ee_site"/>
+    <framequat   name="ee_quat"  objtype="site" objname="ee_site"/>
+    <framelinvel name="ee_vel"   objtype="site" objname="ee_site"/>
+  </sensor>
+
+  <!-- ====================================================================
+       KEYFRAMES: named saved poses. "home" is a comfortable ready pose.
+       qpos layout = [6 arm joints, 2 fingers, 7 cube(x,y,z, quat)].
+       ==================================================================== -->
+  <keyframe>
+    <key name="home"
+         qpos="0 -0.6 1.2 0 0.9 0  0 0  0.35 0 0.025 1 0 0 0"
+         ctrl="0 -0.6 1.2 0 0.9 0  0 0"/>
+  </keyframe>
+
+</mujoco>
