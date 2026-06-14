@@ -36,27 +36,18 @@ using which we can load and visulaize the model.
 ```bash
 # Interactive viewer (default custom model : arm6dof.xml)
 python arm/arm_viewer.py
-
-# Record a demo video (runs headless)
-python arm/arm_viewer.py --video
+# To record a demo video (runs headless) add --video
 
 # Load a MuJoCo menagerie model
 python arm/arm_viewer.py --menagerie <model_name>
-
-# Load a specific scene (default: scene.xml)
-python arm/arm_viewer.py --menagerie <model_name> --scene <scene_file>
-
-# Load a model variant
-python arm/arm_viewer.py --menagerie <model_name> --variant <variant_name>
-
-# Record video of a menagerie model gently waving its actuators
-python arm/arm_viewer.py --menagerie <model_name> --video
+# To load a specific scene (default: scene.xml) add --scene <scene_file>
+# To record video of robot gently waving its actuators add --video
+# To load a model variant add --variant <variant_name>
 ```
-
-Examples:
+Usage examples:
 
 * `--menagerie panda_mj_description`
-* `--scene mjx_scene.xml` or `none` for bear model
+* `--scene mjx_scene.xml` or `--scene none` for bear model
 * `--variant panda_nohand` for no gripper variant
 
 Videos are saved to `media/<robot_model>.mp4`.
